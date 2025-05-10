@@ -13,7 +13,7 @@ public:
     StringName opening_animation;
     StringName closing_animation;
 
-    AnimationPlayer* reference_animation_player;
+    AnimationPlayer* reference_animation_player = nullptr;
 
     void set_opening_animation(const StringName &p_value);
     StringName get_opening_animation() const;

@@ -31,11 +31,16 @@ void LoadingScreen::_notification(const int p_notification) {
             if (Engine::get_singleton()->is_editor_hint())
                 return;
             
+            ScreenManager::get_singleton()->connect(SNAME("completed"), callable_mp(this, &LoadingScreen::_load_completed));
+
+            if (reference_animation_player == nullptr) {
+                ScreenManager::get_singleton()->load_screen();
+                return;
+            }
+
             reference_animation_player->connect(SNAME("animation_finished"), callable_mp(this, &LoadingScreen::_animation_finished));
             reference_animation_player->play(opening_animation);
             reference_animation_player->seek(0.0, true);
-
-            ScreenManager::get_singleton()->connect(SNAME("preload_completed"), callable_mp(this, &LoadingScreen::_load_completed));
         }   break;
     }
 }
@@ -49,7 +54,7 @@ void LoadingScreen::_animation_finished(const StringName &p_anim) {
 }
 
 void LoadingScreen::_load_completed() {
-    ScreenManager::get_singleton()->disconnect(SNAME("preload_completed"), callable_mp(this, &LoadingScreen::_load_completed));
+    ScreenManager::get_singleton()->disconnect(SNAME("completed"), callable_mp(this, &LoadingScreen::_load_completed));
 
     reference_animation_player->play(closing_animation);
     reference_animation_player->seek(0.0, true);
@@ -68,6 +73,6 @@ void LoadingScreen::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "opening_animation"), "set_opening_animation", "get_opening_animation");
     ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "closing_animation"), "set_closing_animation", "get_closing_animation");
 
-    ADD_GROUP("References", "reference");
+    ADD_GROUP("References", "reference_");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "reference_animation_player", PROPERTY_HINT_NODE_TYPE, "AnimationPlayer"), "set_reference_animation_player", "get_reference_animation_player");
 }

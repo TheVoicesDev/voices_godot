@@ -1,4 +1,5 @@
 #include "screen_manager.h"
+#include "core/config/project_settings.h"
 #include "core/io/resource.h"
 #include "core/io/resource_loader.h"
 #include "scene/main/node.h"
@@ -39,6 +40,12 @@ void ScreenManager::switch_screen(const String &p_path, LoadingScreen* p_loading
     _screen_path = p_path;
 
     if (p_loading_screen == nullptr) {
+        LoadingScreen* fallback = _instantiate_default_loading_screen();
+        if (fallback != nullptr) {
+            switch_screen(p_path, fallback);
+            return;
+        }
+        
         load_screen();
         return;
     }
@@ -52,8 +59,14 @@ void ScreenManager::switch_screen_direct(Screen* p_screen, LoadingScreen* p_load
     
     _reset();
     current_screen = p_screen;
-    
+
     if (p_loading_screen == nullptr) {
+        LoadingScreen* fallback = _instantiate_default_loading_screen();
+        if (fallback != nullptr) {
+            switch_screen_direct(p_screen, fallback);
+            return;
+        }
+        
         load_screen();
         return;
     }
@@ -64,11 +77,18 @@ void ScreenManager::switch_screen_direct(Screen* p_screen, LoadingScreen* p_load
 
 void ScreenManager::reload_screen(LoadingScreen* p_loading_screen) {
     ERR_FAIL_COND_MSG(current_screen == nullptr, "No current screen set to reload.");
-    switch_screen_direct(current_screen, p_loading_screen);
+
+    Screen* new_screen = static_cast<Screen*>(current_screen->duplicate());
+    new_screen->set_name(current_screen->get_name());
+    switch_screen_direct(new_screen, p_loading_screen);
 }
 
 void ScreenManager::load_screen() {
     emit_signal(SNAME("started"));
+    
+    Node* current_scene = SceneTree::get_singleton()->get_current_scene();
+    if (current_scene != nullptr)
+        current_scene->queue_free();
 
     if (_screen_path.is_empty() && current_screen != nullptr) {
         _screen_path = current_screen->get_scene_file_path();
@@ -76,14 +96,10 @@ void ScreenManager::load_screen() {
         return;
     }
     
-    ResourceQueueLoader::get_singleton()->queue(_screen_path);
-    
     if (current_screen != nullptr)
         current_screen->queue_free();
-    
-    Node* current_scene = SceneTree::get_singleton()->get_current_scene();
-    if (current_scene != nullptr)
-        current_scene->queue_free();
+
+    ResourceQueueLoader::get_singleton()->queue(_screen_path);
 }
 
 void ScreenManager::queue_extra_path(const String &p_path) {
@@ -96,6 +112,24 @@ void ScreenManager::_reset() {
     _preload_count = 0;
     _preload_list.clear();
     _screen_path.clear();
+}
+
+LoadingScreen* ScreenManager::_instantiate_default_loading_screen() {
+    String default_path = static_cast<String>(GLOBAL_GET("voices/project/default_loading_screen"));
+    if (default_path.is_empty())
+        return nullptr;
+    
+    ERR_FAIL_COND_V_MSG(!ResourceLoader::exists(default_path), nullptr, "Loading screen at voices/project/default_loading_screen does not exist.");
+    Ref<Resource> loading_res = ResourceLoader::load(default_path);
+    
+    ERR_FAIL_COND_V_MSG(!loading_res->is_class("PackedScene"), nullptr, "Loading screen at voices/project/default_loading_screen must be a PackedScene!");
+    Ref<PackedScene> loading_pck = static_cast<Ref<PackedScene>>(loading_res);
+
+    ERR_FAIL_COND_V_MSG(!loading_pck->can_instantiate(), nullptr, "Could not instantiate scene at voices/project/default_loading_screen");
+    Node* loading_node = loading_pck->instantiate();
+
+    ERR_FAIL_COND_V_MSG(!loading_node->is_class("LoadingScreen"), nullptr, "Loading screen at path voices/project/default_loading_screen is not of type LoadingScreen!");
+    return static_cast<LoadingScreen*>(loading_node);
 }
 
 void ScreenManager::_progress_updated(const String &p_path, const Array &p_progress) {
@@ -149,8 +183,11 @@ void ScreenManager::_on_resource_loaded(const String &p_path) {
 void ScreenManager::_completed() {
     progress = 100;
     
-    SceneTree* scene_tree = SceneTree::get_singleton();
-    scene_tree->add_current_scene(current_screen);
+    if (SceneTree::get_singleton()->get_current_scene() == current_screen)
+        SceneTree::get_singleton()->get_root()->remove_child(current_screen);
+    
+    SceneTree::get_singleton()->add_current_scene(current_screen);
+    current_screen->propagate_notification(Node::NOTIFICATION_READY);
 
     emit_signal(SNAME("progress_updated"), progress);
     emit_signal(SNAME("completed"));
@@ -182,6 +219,8 @@ void ScreenManager::_bind_methods() {
     ADD_SIGNAL(MethodInfo("started"));
     ADD_SIGNAL(MethodInfo("progress_updated", PropertyInfo(Variant::INT, "progress")));
     ADD_SIGNAL(MethodInfo("completed"));
+
+    GLOBAL_DEF_BASIC(PropertyInfo(Variant::STRING, "voices/project/default_loading_screen", PROPERTY_HINT_FILE, "*.tscn,*.scn"), "");
 }
 
 ScreenManager::ScreenManager() {

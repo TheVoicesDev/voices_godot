@@ -46,6 +46,8 @@ private:
     int _preload_count = 0;
 
     void _reset();
+    LoadingScreen* _instantiate_default_loading_screen();
+
     void _progress_updated(const String &p_path, const Array &p_progress);
     void _on_resource_loaded(const String &p_path);
     void _completed();

@@ -39,7 +39,9 @@ void Screen::_notification(int p_notification) {
             if (Engine::get_singleton()->is_editor_hint() || is_loaded())
                 return;
             
-            ScreenManager::get_singleton()->switch_screen(get_scene_file_path());
+            Screen* new_screen = static_cast<Screen*>(duplicate());
+            new_screen->set_name(get_name());
+            ScreenManager::get_singleton()->call_deferred(SNAME("switch_screen_direct"), new_screen, static_cast<LoadingScreen*>(nullptr));
         }   break;
     }
 }
