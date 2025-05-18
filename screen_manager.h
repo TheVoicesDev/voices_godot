@@ -16,8 +16,8 @@ public:
 
     static ScreenManager* get_singleton();
 
-    Screen* current_screen;
-    LoadingScreen* loading_screen;
+    Screen* current_screen = nullptr;
+    LoadingScreen* loading_screen = nullptr;
     int progress = 0;
 
     void set_current_screen(Screen *p_value);

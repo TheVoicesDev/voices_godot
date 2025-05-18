@@ -14,7 +14,7 @@ public:
     }
 
     _FORCE_INLINE_ static VoicesConstants *get_singleton() { return singleton; }
-    
+
     const String screen_debug_empty = "No debug info to display!";
 };
 
