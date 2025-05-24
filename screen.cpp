@@ -58,4 +58,8 @@ void Screen::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "needs_preloading"), "set_needs_preloading", "get_needs_preloading");
     
     ClassDB::bind_method("is_loaded", &Screen::is_loaded);
+
+    // Virtual Methods
+    GDVIRTUAL_BIND(_loaded);
+    GDVIRTUAL_BIND(_get_debug_info);
 }
